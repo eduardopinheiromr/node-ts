@@ -2,6 +2,8 @@ import express from "express";
 import routes from "./routes";
 import path from "path";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import swaggerDocument from "./swagger.json";
 
 const app = express();
 const port = 3000;
@@ -16,6 +18,7 @@ app.use(cors());
 
 app.use(express.json());
 
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
 app.use(routes);
