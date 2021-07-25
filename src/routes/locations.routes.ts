@@ -1,7 +1,8 @@
-import { response, Router } from "express";
+import { Router } from "express";
 import knex from "../database/connection";
 import multer from "multer";
 import multerConfig from "../config/multer";
+import { celebrate, Joi } from "celebrate";
 
 const locationsRouter = Router();
 
@@ -10,17 +11,28 @@ const upload = multer(multerConfig);
 locationsRouter.get("/", async (req, res) => {
   const { city, uf, items } = req.query;
 
-  const parsedItems = String(items)
-    .split(",")
-    .map((item) => Number(item.trim()));
+  if (city && uf && items) {
+    const parsedItems = String(items)
+      .split(",")
+      .map((item) => Number(item.trim()));
 
-  const locations = await knex("locations")
-    .join("location_items", "locations.id", "=", "location_items.location_id")
-    .whereIn("location_items.item_id", parsedItems)
-    .where("city", String(city))
-    .where("uf", String(uf))
-    .distinct()
-    .select("locations.*");
+    const locations = await knex("locations")
+      .join("location_items", "locations.id", "=", "location_items.location_id")
+      .whereIn("location_items.item_id", parsedItems)
+      .where("city", String(city))
+      .where("uf", String(uf))
+      .distinct()
+      .select("locations.*");
+
+    return res.json(locations);
+  }
+
+  const locations = await knex("locations").join(
+    "location_items",
+    "locations.id",
+    "=",
+    "location_items.location_id"
+  );
 
   res.json(locations);
 });
@@ -42,56 +54,71 @@ locationsRouter.get("/:id", async (req, res) => {
   res.json({ location, items });
 });
 
-locationsRouter.post("/", async (req, res) => {
-  const { name, email, whatsapp, latitude, longitude, city, uf, items } =
-    req.body;
+locationsRouter.post(
+  "/",
+  celebrate({
+    body: Joi.object().keys({
+      name: Joi.string().required(),
+      email: Joi.string().required().email(),
+      whatsapp: Joi.string().required(),
+      latitude: Joi.number().required(),
+      longitude: Joi.number().required(),
+      city: Joi.string().required(),
+      uf: Joi.string().required().max(2),
+      items: Joi.array().required(),
+    }),
+  }),
+  async (req, res) => {
+    const { name, email, whatsapp, latitude, longitude, city, uf, items } =
+      req.body;
 
-  const location = {
-    image: "fake-image.jpg",
-    name,
-    email,
-    whatsapp,
-    latitude,
-    longitude,
-    city,
-    uf,
-    createdAt: new Date().toLocaleString(),
-  };
+    const location = {
+      image: "fake-image.jpg",
+      name,
+      email,
+      whatsapp,
+      latitude,
+      longitude,
+      city,
+      uf,
+      createdAt: new Date().toLocaleString(),
+    };
 
-  // ROLLBACK OPERATIONS IF ANY ERROR
-  const transaction = await knex.transaction();
+    // ROLLBACK OPERATIONS IF ANY ERROR
+    const transaction = await knex.transaction();
 
-  const newIds = await transaction("locations").insert(location);
+    const newIds = await transaction("locations").insert(location);
 
-  const location_id = newIds[0];
+    const location_id = newIds[0];
 
-  const existentItems = await transaction("items").whereIn("id", items);
+    const existentItems = await transaction("items").whereIn("id", items);
 
-  if (existentItems.length < items.length) {
-    const allExistentIds = existentItems.map(
-      (item: { id: number; title: string; image: string }) => item.id
-    );
+    if (existentItems.length < items.length) {
+      const allExistentIds = existentItems.map(
+        (item: { id: number; title: string; image: string }) => item.id
+      );
 
-    const notFoundIds = items.filter(
-      (item: number) => !allExistentIds.includes(item)
-    );
+      const notFoundIds = items.filter(
+        (item: number) => !allExistentIds.includes(item)
+      );
 
-    return res
-      .status(400)
-      .json({ message: "Item ID's not found", notFoundIds });
+      return res
+        .status(400)
+        .json({ message: "Item ID's not found", notFoundIds });
+    }
+
+    const locationItems = items.map((item_id: number) => {
+      return { item_id, location_id };
+    });
+
+    await transaction("location_items").insert(locationItems);
+
+    await transaction.commit();
+    // END ROLLBACK
+
+    return res.json({ id: location_id, ...location });
   }
-
-  const locationItems = items.map((item_id: number) => {
-    return { item_id, location_id };
-  });
-
-  await transaction("location_items").insert(locationItems);
-
-  await transaction.commit();
-  // END ROLLBACK
-
-  return res.json({ id: location_id, ...location });
-});
+);
 
 locationsRouter.put("/:id", upload.single("image"), async (req, res) => {
   const { id } = req.params;

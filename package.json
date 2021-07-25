@@ -10,6 +10,7 @@
     "db:restart": "rm -rf src/database/database.sqlite && yarn db:migrate && yarn db:seed"
   },
   "dependencies": {
+    "celebrate": "^15.0.0",
     "cors": "^2.8.5",
     "express": "^4.17.1",
     "knex": "^0.95.7",
