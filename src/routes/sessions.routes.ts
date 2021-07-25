@@ -2,6 +2,8 @@ import { response, Router } from "express";
 import knex from "../database/connection";
 import { compare } from "bcryptjs";
 import { sign } from "jsonwebtoken";
+import authConfig from "../config/auth";
+
 require("dotenv").config();
 
 const sessionsRouter = Router();
@@ -21,9 +23,9 @@ sessionsRouter.post("/", async (req, res) => {
     return res.status(400).json({ message: "Invalid credentials" });
   }
 
-  const token = sign({}, process.env.JWT_TOKEN as string, {
+  const token = sign({}, authConfig.jwt.secret, {
     subject: String(user.id),
-    expiresIn: "1d",
+    expiresIn: authConfig.jwt.expiresIn,
   });
 
   const auth = {
