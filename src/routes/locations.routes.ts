@@ -93,7 +93,7 @@ locationsRouter.post("/", async (req, res) => {
   return res.json({ id: location_id, ...location });
 });
 
-locationsRouter.put("/:id", async (req, res) => {
+locationsRouter.put("/:id", upload.single("image"), async (req, res) => {
   const { id } = req.params;
 
   const image = req.file?.filename;
@@ -101,14 +101,14 @@ locationsRouter.put("/:id", async (req, res) => {
   const location = await knex("locations").where("id", id).first();
 
   if (!location) {
-    return response.status(404).json({ message: "Location not found" });
+    res.status(404).json({ message: "Location not found" });
   }
 
   const locationUpdated = { ...location, image };
 
   await knex("locations").update(locationUpdated).where("id", id);
 
-  return response.json(locationUpdated);
+  return res.json(locationUpdated);
 });
 
 export default locationsRouter;

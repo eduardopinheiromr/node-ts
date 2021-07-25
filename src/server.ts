@@ -18,8 +18,25 @@ app.use(express.json());
 
 app.use("/uploads", express.static(path.resolve(__dirname, "..", "uploads")));
 
+app.use("/public", express.static(path.resolve(__dirname, "..", "uploads")));
+
+app.use((req, res, next) => {
+  const { method, url } = req;
+
+  console.log(
+    `\n[${method}] at http://localhost:3000${url} - ${new Date().toLocaleString()}`
+  );
+  next();
+});
+
 app.use(routes);
 
 app.listen(port, () =>
-  console.log("Listening on port http://localhost:" + port)
+  console.log(
+    "\n\n\nListening on port http://localhost:" +
+      port +
+      "\n\n\n\n\n\n\nServer started at " +
+      new Date().toLocaleString() +
+      "\n"
+  )
 );
